@@ -9,11 +9,12 @@ using System.Threading;
 using System.IO;
 using System.Windows.Forms;
 namespace ARCHBLOXBootstrapper_XP
-{   
+{
     public partial class ARCHBLOX : Form
     {
         // set up variables
         public bool IsCompleted = false;
+        public bool exitafterarg = false;
         public bool DontEvenBother = false;
         private static WebClient wc = new WebClient();
         private static ManualResetEvent handle = new ManualResetEvent(true);
@@ -33,20 +34,33 @@ namespace ARCHBLOXBootstrapper_XP
         public ARCHBLOX()
         {
             InitializeComponent();
+            // check for an internet connection first
+            try
+            {
+                wc.DownloadData("http://archblox.com/studio/version.txt");
+            }
+            catch
+            {
+                MessageBox.Show("An error occoured while starting ARCHBLOX Studio\n\nDetails: HttpOpenRequest failed for GET http://archblox.com/studio/version.txt, Error ID: 6", "ARCHBLOX", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Environment.Exit(0);
+            }
             // setup paths
             byte[] raw = wc.DownloadData("http://archblox.com/studio/version.txt");
-            CreateShortcut();
             string webData = Encoding.UTF8.GetString(raw);
             string version_string = webData;
             string folderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Archblx\", @"Studio\", @"Versions\");
             string clientPath = Path.Combine(folderPath, version_string + @"\");
             string filePath = Path.Combine(clientPath, Path.GetFileName(@"http://archblox.com/client/" + version_string + ".zip"));
             string studioPath = Path.Combine(clientPath, "ArchbloxStudio.exe");
+            ARCHBLOXProtocol.ARCHBLOXURIProtocol.Register();
+            CreateShortcut();
+            // TODO: Make studio place launching URI.
             if (Directory.Exists(clientPath) & System.IO.File.Exists(studioPath))
             {
                 // studio exists, create shortcut and launch studio
                 label1.Text = "Launching Studio...";
                 DontEvenBother = true;
+                CreateShortcut();
                 var pProcess = new Process();
                 pProcess.StartInfo.FileName = studioPath;
                 pProcess.StartInfo.UseShellExecute = false;
@@ -69,8 +83,6 @@ namespace ARCHBLOXBootstrapper_XP
             wc.DownloadProgressChanged += Client_DownloadProgressChanged;
             wc.DownloadFileCompleted += Client_DownloadFileCompleted;
             progressBar2.Style = ProgressBarStyle.Marquee;
-            wc.DownloadProgressChanged += Client_DownloadProgressChanged;
-            wc.DownloadFileCompleted += Client_DownloadFileCompleted;
             if (DontEvenBother == false)
             {
                 // install studio
@@ -79,7 +91,8 @@ namespace ARCHBLOXBootstrapper_XP
                 wc.DownloadFileAsync(new Uri(@"http://archblox.com/studio/" + version_string + ".zip"), filePath);
                 progressBar2.Style = ProgressBarStyle.Blocks;
                 handle.WaitOne();
-            } else
+            }
+            else
             {
                 // close program
                 Thread.Sleep(3000);
@@ -89,7 +102,7 @@ namespace ARCHBLOXBootstrapper_XP
 
         private void ARCHBLOX_Load(object sender, EventArgs e)
         {
-           // nothing
+            // nothing
         }
         private void Client_DownloadFileCompleted(object sender, AsyncCompletedEventArgs e)
         {
@@ -107,6 +120,7 @@ namespace ARCHBLOXBootstrapper_XP
                 Extensions.UnZip(filePath, clientPath);
                 System.IO.File.Delete(filePath);
                 label2.Text = "ARCHBLOX Studio has been installed!";
+                CreateShortcut();
                 var pProcess = new Process();
                 pProcess.StartInfo.FileName = studioPath;
                 pProcess.StartInfo.UseShellExecute = false;
